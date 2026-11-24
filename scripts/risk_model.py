@@ -91,7 +91,7 @@ def lbl_income(lo, hi):
         return f"<${hi/1000:.0f}k"
     if hi is None:
         return f"${lo/1000:.0f}k+"
-    return f"${lo/1000:.0f}-${hi/1000:.0f}k"
+    return f"${lo/1000:.0f}-{hi/1000:.0f}k"
 
 
 def lbl_dti(lo, hi):
@@ -107,7 +107,7 @@ def lbl_amt(lo, hi):
         return f"<${hi/1000:.0f}k"
     if hi is None:
         return f"${lo/1000:.0f}k+"
-    return f"${lo/1000:.0f}-${hi/1000:.0f}k"
+    return f"${lo/1000:.0f}-{hi/1000:.0f}k"
 
 
 def lbl_emp(lo, hi):
@@ -515,7 +515,7 @@ def main():
     A("-" * 78)
     A(f"Cutoff {m['cutoff']} points = the score where model PD equals the portfolio")
     A(f"base rate ({m['baseRate']:.2f}%). On the holdout fold, declining every")
-    A("application below the cutoff would have:")
+    A(f"application below the cutoff would have:")
     A(f"  - declined {m['declinePct']:.1f}% of all applications")
     A(f"  - caught   {m['caughtPct']:.1f}% of the loans that actually defaulted")
     A(f"  - turned away {m['goodLostPct']:.1f}% of the good customers")
