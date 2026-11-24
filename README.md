@@ -2,7 +2,7 @@
 
 **One end-to-end pipeline that proves SQL, Python, ML, cloud storage and dashboards on a single question: which bank loans default, and why?**
 
-30,366 clean loan records → a WOE/logistic credit scorecard → SQLite → 20 business SQL queries → a 4-page interactive dashboard (plus Power BI-style screenshots). Every number below is real output of this repo — rerun the pipeline and you get the same numbers.
+30,366 clean loan records → a WOE/logistic credit scorecard → SQLite → 25 business SQL queries → a 5-page interactive dashboard (plus Power BI-style screenshots). Every number below is real output of this repo — rerun the pipeline and you get the same numbers.
 
 [![build](https://github.com/Vinayak-ux-g/CreditLens/actions/workflows/build.yml/badge.svg)](https://github.com/Vinayak-ux-g/CreditLens/actions/workflows/build.yml)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org)
@@ -48,7 +48,7 @@ A credit scorecard built ONLY from what the borrower writes on the form (DTI, in
 
 ## The dashboard
 
-Interactive HTML build — **open `dashboard/creditlens_dashboard.html` in any browser. No server, no internet needed** (ECharts is vendored). Four pages, all cross-filtered live by the slicer rail:
+Interactive HTML build — **open `dashboard/creditlens_dashboard.html` in any browser. No server, no internet needed** (ECharts is vendored). Five pages, all cross-filtered live by the slicer rail:
 
 **Online demo:** the dashboard is a pure static site — deploy it to Vercel for free with one click (import this repo, set *Root Directory* = `dashboard/`):
 
@@ -60,6 +60,7 @@ Interactive HTML build — **open `dashboard/creditlens_dashboard.html` in any b
 | **Risk Deep-Dive** | Where does risk concentrate — grade, purpose, income, DTI, geography (US choropleth)? |
 | **Loan Explorer** | Which exact loans? Searchable, sortable, paginated table over all 30,366 rows — now with each loan's credit score. |
 | **Model & Scorecard** | Does the model work? Score distribution, ROC vs grade vs FICO, KS curve, IV ranking, WOE explorer, and a live score-band report that recalibrates under the slicers. |
+| **What-If Simulator** | Score any applicant profile live: move the four scorecard dials (DTI, income, term, amount), watch the points, band, approve/decline call vs the 570 cutoff, and a calibrated default-rate estimate. Runs on the model bundle alone — it works even before CI fills the loan rows. |
 
 Static screenshots (Power BI report styling) for the README-averse:
 
@@ -88,7 +89,7 @@ The dashboard does not read the CSV. `scripts/export_dashboard_data.py` exports 
 | 3. Cleaning | Python + Pandas | `scripts/clean_loans.py` | `data/clean/clean_loans.csv` + `reports/cleaning_report.txt` |
 | 4. Credit model | Python + scikit-learn | `scripts/risk_model.py` | `data/clean/loans_scored.csv` + `reports/model_report.txt` + `reports/scorecard_points.csv` |
 | 5. Database | SQLite | `scripts/load_database.py` | `sql/loans.db` (`loans` + `loan_scores` tables) + `sql/schema.sql` |
-| 6. Analysis | SQL | `sql/analysis.sql` (20 commented queries) | `sql/results/*.csv` |
+| 6. Analysis | SQL | `sql/analysis.sql` + `sql/analysis_advanced.sql` (25 commented queries) | `sql/results/*.csv` |
 | 7. Dashboard | ECharts (Power BI-style) | `scripts/make_dashboard_pngs.py`, `scripts/export_dashboard_data.py` | `dashboard/` |
 
 **Cost: $0.** Every tool in the chain is free. CI rebuilds everything with pinned dependencies — see the build badge at the top.
@@ -118,11 +119,15 @@ Built the way retail banks actually build them, in `scripts/risk_model.py`:
 
 Deliberate exclusions (documented in the script): **grade/sub_grade** (the bank's own rating — downstream of underwriting), **int_rate** (the bank's price, set *from* the grade), **fico_score** (kept out so the scorecard can be benchmarked against it). The story: can application data alone rebuild the bank's risk ranking? Almost — and it beats the bureau score while doing it.
 
-### The 20 SQL questions
+### The 25 SQL questions
 
-`sql/analysis.sql` — each query has the business question and the *why* above it:
+`sql/analysis.sql` (q01–q20) — each query has the business question and the *why* above it:
 
 1. Overall default rate · 2. Default rate by grade · 3. By purpose · 4. By income band · 5. Avg loan amount: default vs paid · 6. Avg interest rate: default vs paid · 7. By DTI band · 8. Top 10 states by default count · 9. Loan amount distribution by grade · 10. Employment length: default vs paid · 11. Purpose with the largest average loan · 12. Monthly volume + default rate trend · 13. 36 vs 60-month term · 14. The full A1→G5 sub-grade ladder · 15. The high-risk segment (E–G + DTI≥30) sized and quantified · 16. By home ownership · **17. Score decile ranking with `NTILE(10)` + predicted-vs-actual calibration** · **18. Running book and default totals with `SUM() OVER` window frames** · **19. Expected vs realized loss by grade (EL = PD × EAD × LGD)** · **20. Riskiest purpose per state with `ROW_NUMBER() PARTITION BY`**
+
+`sql/analysis_advanced.sql` (q21–q25) — the expert follow-ups `run_analysis.py` executes right after q20:
+
+**21. Vintage matrix** — default rate by issue year × grade (cohort drift vs grade drift) · **22. Net economics by grade** — collected flat interest minus lost principal per grade: which grades actually pay for their own defaults · **23. Loss Pareto** — defaulted dollars by purpose × grade with a running cumulative share: how concentrated charge-offs really are · **24. Scorecard lift within FICO bands** — `NTILE(2)` median split inside identical FICO bands: within 680–719 FICO, below-median scorecard loans default **34.1% vs 16.3%** — the scorecard carries signal FICO does not · **25. Cutoff sweep** — the full approval-policy frontier (520→620): approval %, bad rate among approved, defaults caught vs leaked, funded dollars left on the table.
 
 ---
 
@@ -137,9 +142,10 @@ python scripts/generate_loans.py          # 1. raw dataset (or drop your own Kag
 python scripts/clean_loans.py             # 2. clean + audit report
 python scripts/risk_model.py              # 3. credit scorecard: WOE/IV, validation, scores
 python scripts/load_database.py           # 4. SQLite database (loans + loan_scores)
-python scripts/run_analysis.py            # 5. all 20 queries -> sql/results/
+python scripts/run_analysis.py            # 5. all 25 queries -> sql/results/
 python scripts/export_dashboard_data.py   # 6. SQL -> dashboard bundle
 python scripts/make_dashboard_pngs.py     # 7. static screenshots (optional)
+python scripts/psi_monitor.py             # 8. PSI/AUC drift report -> reports/psi_report.txt
 
 # explore interactively
 sqlite3 sql/loans.db
@@ -147,6 +153,15 @@ sqlite3 sql/loans.db
 ```
 
 Everything is seeded, so results are reproducible byte-for-byte — and [`.github/workflows/build.yml`](.github/workflows/build.yml) proves it in CI: the workflow reruns the whole chain on every push and commits the artifacts back (datasets, `loans.db`, `data.js`, vendor libraries, screenshots), so a fresh clone already contains everything. Re-run any script yourself and `git status` stays clean.
+
+## Turn everything on (one-time, 5 minutes)
+
+Two switches, both free. Full click-by-click instructions live in [docs/DEPLOY.md](docs/DEPLOY.md).
+
+1. **Activate the CI rebuild.** The workflow text ships at `docs/build.yml.txt` (2,085 bytes, validated YAML). In GitHub: *Add file → Create new file*, name it `.github/workflows/build.yml`, paste the staged text, commit. Actions then rebuilds `data.js`, `vendor/`, screenshots and `loans.db` on every push and commits them back.
+2. **Deploy the dashboard to Vercel.** Either click the Deploy button above (Root Directory `dashboard/`) or import the repo manually — both paths are documented, including the landing-page-only variant.
+
+Until step 1 runs, the deployed dashboard shows a friendly build banner on the four data pages — and the **What-If Simulator already works**, because it runs on the model bundle alone.
 
 ## Repo structure
 
@@ -159,21 +174,25 @@ creditlens/
 │   ├── raw/loans_raw.csv         <- 30,680 messy rows (committed on purpose)
 │   └── clean/clean_loans.csv     <- 30,366 analysis-ready rows
 │       └── loans_scored.csv      <- loan_id, credit_score, pd_default (model output)
-├── scripts/                      <- one script per pipeline stage
+├── scripts/                      <- one script per pipeline stage + psi_monitor.py (drift)
 ├── sql/
 │   ├── analysis.sql              <- 20 commented business queries
+│   ├── analysis_advanced.sql     <- 5 expert queries (vintage, Pareto, cutoff sweep)
 │   ├── schema.sql                <- loans + loan_scores tables
 │   ├── loans.db                  <- query it right now: sqlite3 sql/loans.db
 │   └── results/                  <- one CSV per query + summary
 ├── dashboard/
-│   ├── creditlens_dashboard.html <- open in browser, works offline (4 pages)
+│   ├── creditlens_dashboard.html <- open in browser, works offline (5 pages)
 │   ├── data.js                   <- exported from SQLite + model artifacts
 │   ├── vendor/                   <- ECharts + US map (vendored, no CDN needed)
 │   ├── screenshots/              <- Power BI-style static pages
 │   └── vercel.json               <- serves the dashboard at / on Vercel
 ├── docs/
 │   ├── architecture.svg
-│   └── data_dictionary.md        <- both tables documented
+│   ├── data_dictionary.md        <- both tables documented
+│   ├── DEPLOY.md                 <- CI activation + Vercel, click by click
+│   └── build.yml.txt             <- staged CI workflow text (paste into
+│                                    .github/workflows/build.yml once)
 └── reports/
     ├── cleaning_report.txt       <- the cleaning audit log
     ├── model_report.txt          <- full scorecard documentation
@@ -192,15 +211,16 @@ To use a real dataset instead: download any loan-default CSV from Kaggle, put it
 ## Resume bullets (with the real numbers from this repo)
 
 - Built **CreditLens**, an end-to-end loan risk pipeline: 30,000+ records cleaned with **Python/Pandas**, stored on **AWS S3**, loaded into **SQLite** for analysis.
-- Answered **20 business questions in SQL** (default rate by grade, DTI band, purpose, income band, geography, plus `NTILE` decile and window-function reports) and found grade-G loans default at **64% vs 2% for grade A** — a 39x spread.
+- Answered **25 business questions in SQL** (default rate by grade, DTI band, purpose, income band, geography, `NTILE` decile calibration, window-function reports, vintage matrix, loss Pareto, scorecard-vs-FICO lift, cutoff sensitivity) and found grade-G loans default at **64% vs 2% for grade A** — a 39x spread.
 - Built a **WOE/IV credit scorecard** (logistic regression, points scaling, holdout AUC **0.776**) from application data only — **beating the FICO bureau score (0.770)** and nearly matching the lender's own grade ladder (0.789); declining below the 570-point cutoff would have caught **73% of defaults**.
-- Shipped a **4-page interactive dashboard** reading live from the SQL layer; identified a segment (grade E–G, DTI≥30) that is **4% of loans but 16% of defaulted dollars**.
+- Shipped a **5-page interactive dashboard** reading live from the SQL layer — including a **What-If Score Simulator** that scores any applicant profile in the browser — and identified a segment (grade E–G, DTI≥30) that is **4% of loans but 16% of defaulted dollars**.
+- Added **model governance**: a PSI/AUC/calibration drift monitor (`scripts/psi_monitor.py`, first 60% of months vs the rest) and SQL proof that the scorecard beats FICO inside identical FICO bands.
 
 ## What I'd build next
 
 - Challenger model: **gradient boosting with SHAP values**, benchmarked against the scorecard on the same holdout split
 - Re-run the 3 heaviest queries in **PySpark** (partitions by issue month) — scale story beyond one machine
-- Move the SQLite layer to a **cloud warehouse** (Redshift/RDS) with scheduled refreshes and **model monitoring** (PSI drift on the score distribution)
+- Move the SQLite layer to a **cloud warehouse** (Redshift/RDS) with scheduled refreshes — PSI drift monitoring already ships locally in `scripts/psi_monitor.py`; the next step is scheduling it
 
 ---
 
