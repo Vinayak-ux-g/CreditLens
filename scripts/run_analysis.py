@@ -2,8 +2,8 @@
 CreditLens - Step 5: Run the SQL analysis and save results
 ===========================================================
 
-Executes every query in sql/analysis.sql against sql/loans.db, prints the
-result of each, and saves:
+Executes every query in sql/analysis.sql AND sql/analysis_advanced.sql
+against sql/loans.db, prints the result of each, and saves:
   * one CSV per query          -> sql/results/qNN_<slug>.csv
   * a combined text summary     -> sql/results/results_summary.txt
 
@@ -22,7 +22,8 @@ import sqlite3
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SQL_FILE = ROOT / "sql" / "analysis.sql"
+SQL_FILES = [ROOT / "sql" / "analysis.sql",
+             ROOT / "sql" / "analysis_advanced.sql"]
 DB = ROOT / "sql" / "loans.db"
 OUT_DIR = ROOT / "sql" / "results"
 SUMMARY = OUT_DIR / "results_summary.txt"
@@ -51,39 +52,40 @@ def split_queries(text):
 def main():
     conn = sqlite3.connect(DB)
     conn.row_factory = sqlite3.Row
-    text = SQL_FILE.read_text()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     summary, n_run = [], 0
-    for num, slug, desc, sql in split_queries(text):
-        if not sql.strip():
-            continue
-        n_run += 1
-        cur = conn.execute(sql)
-        rows = [dict(r) for r in cur.fetchall()]
-        cols = [d[0] for d in cur.description] if rows else []
+    for sql_path in SQL_FILES:
+        text = sql_path.read_text()
+        for num, slug, desc, sql in split_queries(text):
+            if not sql.strip():
+                continue
+            n_run += 1
+            cur = conn.execute(sql)
+            rows = [dict(r) for r in cur.fetchall()]
+            cols = [d[0] for d in cur.description] if rows else []
 
-        csv_path = OUT_DIR / f"q{num}_{slug}.csv"
-        with csv_path.open("w", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=cols)
-            w.writeheader()
-            w.writerows(rows)
+            csv_path = OUT_DIR / f"q{num}_{slug}.csv"
+            with csv_path.open("w", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=cols)
+                w.writeheader()
+                w.writerows(rows)
 
-        header = f"Q{num}  {' '.join(d for d in desc if d)}"
-        summary.append("=" * 78)
-        summary.append(header)
-        summary.append("=" * 78)
-        if cols:
-            summary.append(" | ".join(cols))
-            summary.append("-" * 78)
-            for r in rows[:40]:
-                summary.append(" | ".join(str(r[c]) for c in cols))
-            if len(rows) > 40:
-                summary.append(f"... ({len(rows) - 40} more rows - see {csv_path.name})")
-        else:
-            summary.append("(no rows)")
-        summary.append("")
-        print(f"Q{num} ok -> {csv_path.name}  ({len(rows)} rows)")
+            header = f"Q{num}  {' '.join(d for d in desc if d)}"
+            summary.append("=" * 78)
+            summary.append(header)
+            summary.append("=" * 78)
+            if cols:
+                summary.append(" | ".join(cols))
+                summary.append("-" * 78)
+                for r in rows[:40]:
+                    summary.append(" | ".join(str(r[c]) for c in cols))
+                if len(rows) > 40:
+                    summary.append(f"... ({len(rows) - 40} more rows - see {csv_path.name})")
+            else:
+                summary.append("(no rows)")
+            summary.append("")
+            print(f"Q{num} ok -> {csv_path.name}  ({len(rows)} rows)")
 
     conn.close()
     SUMMARY.write_text("\n".join(summary) + "\n")
