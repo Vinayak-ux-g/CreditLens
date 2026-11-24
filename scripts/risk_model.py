@@ -91,7 +91,7 @@ def lbl_income(lo, hi):
         return f"<${hi/1000:.0f}k"
     if hi is None:
         return f"${lo/1000:.0f}k+"
-    return f"${lo/1000:.0f}-${hi/1000:.0f}k"
+    return f"${lo/1000:.0f}-{hi/1000:.0f}k"
 
 
 def lbl_dti(lo, hi):
@@ -107,7 +107,7 @@ def lbl_amt(lo, hi):
         return f"<${hi/1000:.0f}k"
     if hi is None:
         return f"${lo/1000:.0f}k+"
-    return f"${lo/1000:.0f}-${hi/1000:.0f}k"
+    return f"${lo/1000:.0f}-{hi/1000:.0f}k"
 
 
 def lbl_emp(lo, hi):
