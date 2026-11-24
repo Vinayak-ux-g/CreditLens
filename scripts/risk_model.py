@@ -99,7 +99,7 @@ def lbl_dti(lo, hi):
         return f"<{hi:.0f}"
     if hi is None:
         return f"{lo:.0f}+"
-    return f"{lo:.0f}-${hi:.0f}" if False else f"{lo:.0f}-{hi:.0f}"
+    return f"{lo:.0f}-{hi:.0f}"
 
 
 def lbl_amt(lo, hi):
@@ -411,7 +411,7 @@ def main():
     hi = int(np.ceil(score_full.max() / 25) * 25)
     # band i covers [edges[i-1], edges[i]); below the first edge and above the
     # last are the '<x' and 'y+' open bands -> labels.len() == edges.len() + 1
-    band_edges = list(range(lo + 25, hi, 25)) or i]
+    band_edges = list(range(lo + 25, hi, 25)) or [hi]
     band_labels = ([f"<{band_edges[0]}"]
                    + [f"{band_edges[i]}-{band_edges[i+1]}" for i in range(len(band_edges) - 1)]
                    + [f"{band_edges[-1]}+"])
