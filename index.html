@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CreditLens — Loan Default Risk Analytics</title>
+<meta name="description" content="End-to-end credit-risk pipeline: 30,366 loans, WOE/logistic credit scorecard, SQLite + 20 SQL queries, interactive 4-page ECharts dashboard.">
+<style>
+  :root{--navy:#12239E;--blue:#118DFF;--gold:#FFB900;--ink:#252423;--sub:#B9C2E8;--card:rgba(255,255,255,.06)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font:16px/1.6 'Segoe UI',Arial,sans-serif;background:linear-gradient(160deg,#0B0E3B 0%,#12239E 55%,#0B0E3B 100%);color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:64px 24px 40px}
+  .wrap{max-width:920px;width:100%;text-align:center}
+  h1{font-size:56px;letter-spacing:-1.5px;line-height:1.1}
+  h1 span{color:var(--gold)}
+  .tag{margin:18px auto 34px;max-width:640px;color:var(--sub);font-size:18px}
+  .kpis{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:40px}
+  .kpi{background:var(--card);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:16px 22px;min-width:150px}
+  .kpi b{display:block;font-size:26px;color:var(--gold)}
+  .kpi span{font-size:13px;color:var(--sub);text-transform:uppercase;letter-spacing:1px}
+  .cta{display:inline-block;background:var(--gold);color:var(--ink);font:700 18px/1 'Segoe UI',Arial,sans-serif;padding:18px 46px;border-radius:12px;text-decoration:none;box-shadow:0 8px 30px rgba(255,185,0,.35)}
+  .cta:hover{transform:translateY(-2px)}
+  .row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+  .row a{color:var(--sub);text-decoration:none;border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 18px;font-size:14px}
+  .row a:hover{color:#fff;border-color:var(--gold)}
+  .feat{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:48px}
+  .card{background:var(--card);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:20px;flex:1 1 240px;max-width:290px;text-align:left}
+  .card b{color:var(--gold);display:block;margin-bottom:6px;font-size:15px}
+  .card p{color:var(--sub);font-size:13.5px}
+  footer{margin-top:52px;color:var(--sub);font-size:13px}
+  footer a{color:var(--gold);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Credit<span>Lens</span></h1>
+  <p class="tag">One end-to-end pipeline on a single question: <b>which bank loans default, and why?</b>
+  Seeded data generation &rarr; cleaning &rarr; WOE/logistic credit scorecard &rarr; SQLite &rarr; 20 SQL queries &rarr; live dashboard.</p>
+
+  <div class="kpis">
+    <div class="kpi"><b>30,366</b><span>clean loans</span></div>
+    <div class="kpi"><b>$861.4M</b><span>funded</span></div>
+    <div class="kpi"><b>12.47%</b><span>default rate</span></div>
+    <div class="kpi"><b>0.776</b><span>holdout AUC</span></div>
+  </div>
+
+  <a class="cta" href="dashboard/creditlens_dashboard.html">OPEN THE LIVE DASHBOARD &rarr;</a>
+
+  <div class="row">
+    <a href="docs/architecture.svg">Architecture</a>
+    <a href="sql/analysis.sql">20 SQL queries</a>
+    <a href="reports/model_report.txt">Model report</a>
+    <a href="docs/data_dictionary.md">Data dictionary</a>
+  </div>
+
+  <div class="feat">
+    <div class="card"><b>Credit scorecard</b><p>WOE binning, monotonic bins, IV feature selection, logistic model, points scale (600 = 20:1 odds), validated on a stratified holdout — AUC 0.776 from application data alone.</p></div>
+    <div class="card"><b>4-page dashboard</b><p>Overview, Risk Deep-Dive (US map), Loan Explorer (all 30k rows, filterable) and Model page (ROC, score bands, points table) — offline ECharts, no server needed.</p></div>
+    <div class="card"><b>Byte-reproducible</b><p>Every artifact is seeded; GitHub Actions reruns the whole chain on each push and commits results back, so every number in the README is verifiable.</p></div>
+  </div>
+
+  <footer>Deploy: this is a zero-build static site — <a href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FVinayak-ux-g%2FCreditLens">one-click on Vercel</a></footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 360" font-family="Segoe UI, Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#118DFF"/>
+    </marker>
+  </defs>
+
+  <rect width="960" height="360" fill="#F7F9FC"/>
+
+  <text x="40" y="38" font-size="21" font-weight="700" fill="#12239E">CreditLens</text>
+  <text x="150" y="38" font-size="13.5" fill="#6B7280">- the full pipeline, from synthetic raw data to a live dashboard</text>
+
+  <!-- row 1 -->
+  <g>
+    <rect x="40" y="64" width="205" height="88" rx="10" fill="#FFFFFF" stroke="#E1E5E9"/>
+    <circle cx="65" cy="87" r="12" fill="#FFB900"/>
+    <text x="65" y="91" font-size="12.5" font-weight="700" fill="#252423" text-anchor="middle">1</text>
+    <text x="84" y="91" font-size="12.5" font-weight="700" fill="#12239E" letter-spacing="0.4">RAW DATA</text>
+    <text x="54" y="116" font-size="10.5" fill="#0B5FBD" font-family="Consolas, Menlo, monospace">generate_loans.py</text>
+    <text x="54" y="132" font-size="10.5" fill="#6B7280">30,680 messy rows on purpose</text>
+    <text x="54" y="146" font-size="10.5" fill="#9AA3AB">seeded - swap in any Kaggle CSV</text>
+  </g>
+  <path d="M247,108 H261" stroke="#118DFF" stroke-width="2.4" marker-end="url(#arr)" fill="none"/>
+  <g>
+    <rect x="265" y="64" width="205" height="88" rx="10" fill="#FFFFFF" stroke="#E1E5E9"/>
+    <circle cx="290" cy="87" r="12" fill="#FFB900"/>
+    <text x="290" y="91" font-size="12.5" font-weight="700" fill="#252423" text-anchor="middle">2</text>
+    <text x="309" y="91" font-size="12.5" font-weight="700" fill="#12239E" letter-spacing="0.4">CLEAN</text>
+    <text x="279" y="116" font-size="10.5" fill="#0B5FBD" font-family="Consolas, Menlo, monospace">clean_loans.py</text>
+    <text x="279" y="132" font-size="10.5" fill="#6B7280">types, dupes, outliers fixed</text>
+    <text x="279" y="146" font-size="10.5" fill="#9AA3AB">30,366 rows + audit log</text>
+  </g>
+  <path d="M472,108 H486" stroke="#118DFF" stroke-width="2.4" marker-end="url(#arr)" fill="none"/>
+  <g>
+    <rect x="490" y="64" width="205" height="88" rx="10" fill="#FFFFFF" stroke="#E1E5E9"/>
+    <circle cx="515" cy="87" r="12" fill="#FFB900"/>
+    <text x="515" y="91" font-size="12.5" font-weight="700" fill="#252423" text-anchor="middle">3</text>
+    <text x="534" y="91" font-size="12.5" font-weight="700" fill="#12239E" letter-spacing="0.4">SCORECARD</text>
+    <text x="504" y="116" font-size="10.5" fill="#0B5FBD" font-family="Consolas, Menlo, monospace">risk_model.py</text>
+    <text x="504" y="132" font-size="10.5" fill="#6B7280">WOE/IV + logistic points</text>
+    <text x="504" y="146" font-size="10.5" fill="#9AA3AB">holdout AUC 0.776, KS 0.43</text>
+  </g>
+  <path d="M697,108 H711" stroke="#118DFF" stroke-width="2.4" marker-end="url(#arr)" fill="none"/>
+  <g>
+    <rect x="715" y="64" width="205" height="88" rx="10" fill="#FFFFFF" stroke="#E1E5E9"/>
+    <circle cx="740" cy="87" r="12" fill="#FFB900"/>
+    <text x="740" y="91" font-size="12.5" font-weight="700" fill="#252423" text-anchor="middle">4</text>
+    <text x="759" y="91" font-size="12.5" font-weight="700" fill="#12239E" letter-spacing="0.4">DATABASE</text>
+    <text x="729" y="116" font-size="10.5" fill="#0B5FBD" font-family="Consolas, Menlo, monospace">load_database.py</text>
+    <text x="729" y="132" font-size="10.5" fill="#6B7280">SQLite: loans + loan_scores</text>
+    <text x="729" y="146" font-size="10.5" fill="#9AA3AB">indexed for the 20 queries</text>
+  </g>
+  <path d="M817.5,155 V210" stroke="#118DFF" stroke-width="2.4" marker-end="url(#arr)" fill="none"/>
+
+  <!-- row 2 (flows right to left) -->
+  <g>
+    <rect x="715" y="214" width="205" height="88" rx="10" fill="#FFFFFF" stroke="#E1E5E9"/>
+    <circle cx="740" cy="237" r="12" fill="#FFB900"/>
+    <text x="740" y="241" font-size="12.5" font-weight="700" fill="#252423" text-anchor="middle">5</text>
+    <text x="759" y="241" font-size="12.5" font-weight="700" fill="#12239E" letter-spacing="0.4">SQL ANALYSIS</text>
+    <text x="729" y="266" font-size="10.5" fill="#0B5FBD" font-family="Consolas, Menlo, monospace">analysis.sql</text>
+    <text x="729" y="282" font-size="10.5" fill="#6B7280">20 business questions</text>
+    <text x="729" y="296" font-size="10.5" fill="#9AA3AB">NTILE, windows, CTEs</text>
+  </g>
+  <path d="M713,258 H699" stroke="#118DFF" stroke-width="2.4" marker-end="url(#arr)" fill="none"/>
+  <g>
+    <rect x="490" y="214" width="205" height="88" rx="10" fill="#FFFFFF" stroke="#E1E5E9"/>
+    <circle cx="515" cy="237" r="12" fill="#FFB900"/>
+    <text x="515" y="241" font-size="12.5" font-weight="700" fill="#252423" text-anchor="middle">6</text>
+    <text x="534" y="241" font-size="12.5" font-weight="700" fill="#12239E" letter-spacing="0.4">DASHBOARD DATA</text>
+    <text x="504" y="266" font-size="10.5" fill="#0B5FBD" font-family="Consolas, Menlo, monospace">export_dashboard_data.py</text>
+    <text x="504" y="282" font-size="10.5" fill="#6B7280">straight from the SQL layer</text>
+    <text x="504" y="296" font-size="10.5" fill="#9AA3AB">model artifacts merged in</text>
+  </g>
+  <path d="M488,258 H474" stroke="#118DFF" stroke-width="2.4" marker-end="url(#arr)" fill="none"/>
+  <g>
+    <rect x="265" y="214" width="205" height="88" rx="10" fill="#FFFFFF" stroke="#E1E5E9"/>
+    <circle cx="290" cy="237" r="12" fill="#FFB900"/>
+    <text x="290" y="241" font-size="12.5" font-weight="700" fill="#252423" text-anchor="middle">7</text>
+    <text x="309" y="241" font-size="12.5" font-weight="700" fill="#12239E" letter-spacing="0.4">DASHBOARD</text>
+    <text x="279" y="266" font-size="10.5" fill="#0B5FBD" font-family="Consolas, Menlo, monospace">creditlens_dashboard.html</text>
+    <text x="279" y="282" font-size="10.5" fill="#6B7280">ECharts, 4 pages, offline</text>
+    <text x="279" y="296" font-size="10.5" fill="#9AA3AB">slicers filter 30k rows live</text>
+  </g>
+  <g>
+    <rect x="40" y="214" width="205" height="88" rx="10" fill="#FFFFFF" stroke="#C9D1D9" stroke-dasharray="5 4"/>
+    <text x="54" y="241" font-size="12.5" font-weight="700" fill="#6B7280" letter-spacing="0.4">ALSO IN THE REPO</text>
+    <text x="54" y="266" font-size="10.5" fill="#6B7280">reports/ + screenshots/</text>
+    <text x="54" y="282" font-size="10.5" fill="#6B7280">data dictionary + schema</text>
+    <text x="54" y="296" font-size="10.5" fill="#9AA3AB">optional S3 hop: s3_upload.sh</text>
+  </g>
+
+  <rect x="40" y="318" width="880" height="30" rx="8" fill="#E8F1FE"/>
+  <text x="480" y="337" font-size="12" fill="#0B5FBD" text-anchor="middle">GitHub Actions reruns stages 1-7 on every push and commits the artifacts (byte-identical) &#183; Vercel serves the dashboard live</text>
+</svg>

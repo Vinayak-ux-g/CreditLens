@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Note: data/, sql/loans.db and dashboard/data.js are committed ON PURPOSE -
+# a recruiter should be able to query the database and open the dashboard
+# immediately after cloning, with zero setup.

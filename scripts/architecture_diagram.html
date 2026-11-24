@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --text: #111827;
+    --text-sub: #6B7280;
+    --text-muted: #9CA3AF;
+    --border: #E5E7EB;
+    --connector: #94A3B8;
+  }
+  body {
+    font-family: 'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    background: #FFFFFF;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  #root { width: fit-content; min-width: 1720px; margin: 0 auto; padding: 52px 48px 44px; background: #FFFFFF; }
+
+  .flow-title { font-size: 27px; font-weight: 700; color: #0F172A; text-align: center; }
+  .flow-subtitle { font-size: 14.5px; color: var(--text-sub); text-align: center; margin-top: 8px; margin-bottom: 40px; }
+
+  .pipeline { display: flex; align-items: stretch; justify-content: center; }
+
+  .stage {
+    width: 236px; background: #F8FAFC; border: 2px solid #94A3B8;
+    border-radius: 12px; padding: 16px 16px 14px; position: relative;
+    display: flex; flex-direction: column;
+  }
+  .stage .tool { font-size: 16.5px; font-weight: 700; color: #1E3A5F; }
+  .stage .step { font-size: 11px; font-weight: 600; letter-spacing: 1.1px; color: #64748B; text-transform: uppercase; margin-bottom: 5px; }
+  .stage .desc { font-size: 12.5px; color: #4B5563; line-height: 1.55; margin-top: 7px; flex: 1; }
+  .stage .artifact {
+    margin-top: 12px; font-size: 11.5px; font-weight: 600; color: #334155;
+    background: #EFF3F8; border: 1px solid #D6DEE8; border-radius: 6px;
+    padding: 6px 8px; text-align: center;
+    font-family: 'Consolas', 'Courier New', monospace;
+  }
+  .stage.src     { background: #EFF6FF; border-color: #3B82F6; }
+  .stage.src .tool { color: #1E40AF; }
+  .stage.cloud   { background: #F0FDF4; border-color: #10B981; }
+  .stage.cloud .tool { color: #065F46; }
+  .stage.python  { background: #FFF7ED; border-color: #F59E0B; }
+  .stage.python .tool { color: #92400E; }
+  .stage.python .artifact { background: #FDF3E3; border-color: #EBDCBF; }
+  .stage.sql     { background: #F5F3FF; border-color: #8B5CF6; }
+  .stage.sql .tool { color: #5B21B6; }
+  .stage.sql .artifact { background: #F0EBFC; border-color: #DDD2F2; }
+  .stage.bi      { background: #FFF7ED; border-color: #F59E0B; }
+  .stage.bi .tool { color: #92400E; }
+  .stage.bi .artifact { background: #FDF3E3; border-color: #EBDCBF; }
+  .stage.git     { background: #F8FAFC; border-color: #64748B; }
+  .stage.git .tool { color: #334155; }
+  .stage.git .artifact { background: #EFF3F8; border-color: #D6DEE8; }
+
+  .arrow {
+    display: flex; align-items: center; justify-content: center;
+    width: 44px; flex: 0 0 44px; color: var(--connector);
+  }
+  .arrow svg { display: block; }
+
+  .footer {
+    margin-top: 34px; display: flex; gap: 26px; justify-content: center; align-items: center;
+    background: #F9FAFB; border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 28px;
+  }
+  .footer .cost { font-size: 13.5px; font-weight: 700; color: #0F172A; }
+  .footer .item { font-size: 12.5px; color: #4B5563; }
+  .footer .dot { width: 5px; height: 5px; border-radius: 50%; background: #CBD5E1; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="flow-title">CreditLens &mdash; End-to-End Loan Risk Analytics Pipeline</div>
+  <div class="flow-subtitle">One chain, five skills: data sourcing &rarr; cloud storage &rarr; Python cleaning &rarr; ML scorecard &rarr; SQL analysis &rarr; dashboard &rarr; public proof</div>
+
+  <div class="pipeline">
+    <div class="stage src">
+      <div class="step">Step 1 &middot; Source</div>
+      <div class="tool">Loan Dataset</div>
+      <div class="desc">30,500+ personal-loan records with grades A&ndash;G, income, DTI, purpose, state and a default flag (Kaggle CSV or the seeded generator).</div>
+      <div class="artifact">loans_raw.csv</div>
+    </div>
+    <div class="arrow"><svg width="30" height="16" viewBox="0 0 30 16"><path d="M0 8 H22 M22 8 L15 2 M22 8 L15 14" stroke="#94A3B8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="stage cloud">
+      <div class="step">Step 2 &middot; Cloud</div>
+      <div class="tool">AWS S3</div>
+      <div class="desc">Raw and cleaned files stored in a Free-Tier bucket &mdash; durable, versioned landing zone for the pipeline.</div>
+      <div class="artifact">s3://creditlens-raw</div>
+    </div>
+    <div class="arrow"><svg width="30" height="16" viewBox="0 0 30 16"><path d="M0 8 H22 M22 8 L15 2 M22 8 L15 14" stroke="#94A3B8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="stage python">
+      <div class="step">Step 3 &middot; Clean</div>
+      <div class="tool">Python + Pandas</div>
+      <div class="desc">Types fixed, 180 duplicates removed, target-missing rows dropped, group-median imputation, outliers capped &mdash; every decision logged.</div>
+      <div class="artifact">clean_loans.py &rarr; clean_loans.csv</div>
+    </div>
+    <div class="arrow"><svg width="30" height="16" viewBox="0 0 30 16"><path d="M0 8 H22 M22 8 L15 2 M22 8 L15 14" stroke="#94A3B8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="stage python">
+      <div class="step">Step 4 &middot; Model</div>
+      <div class="tool">Python + scikit-learn</div>
+      <div class="desc">WOE/IV feature binning, logistic scorecard validated on a 30% holdout (AUC 0.776 &mdash; beats FICO, nearly matches the bank's own grade), every loan scored.</div>
+      <div class="artifact">risk_model.py &rarr; loans_scored.csv</div>
+    </div>
+    <div class="arrow"><svg width="30" height="16" viewBox="0 0 30 16"><path d="M0 8 H22 M22 8 L15 2 M22 8 L15 14" stroke="#94A3B8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="stage sql">
+      <div class="step">Step 5 &middot; Analyse</div>
+      <div class="tool">SQLite</div>
+      <div class="desc">Clean data plus the model score table; 20 business questions answered with one commented query each &mdash; NTILE deciles, window functions, expected loss.</div>
+      <div class="artifact">loans.db + analysis.sql</div>
+    </div>
+    <div class="arrow"><svg width="30" height="16" viewBox="0 0 30 16"><path d="M0 8 H22 M22 8 L15 2 M22 8 L15 14" stroke="#94A3B8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="stage bi">
+      <div class="step">Step 6 &middot; Present</div>
+      <div class="tool">Power BI / ECharts</div>
+      <div class="desc">4-page dashboard reading live from the SQL layer: Overview, Risk Deep-Dive, Loan Explorer and a Model &amp; Scorecard page with ROC / KS / WOE.</div>
+      <div class="artifact">creditlens_dashboard</div>
+    </div>
+    <div class="arrow"><svg width="30" height="16" viewBox="0 0 30 16"><path d="M0 8 H22 M22 8 L15 2 M22 8 L15 14" stroke="#94A3B8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="stage git">
+      <div class="step">Step 7 &middot; Publish</div>
+      <div class="tool">GitHub</div>
+      <div class="desc">Clean folder structure, README with architecture, screenshots and six data-backed insights recruiters can verify.</div>
+      <div class="artifact">README.md + sql/results/</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span class="cost">Total cost: $0</span>
+    <span class="dot"></span>
+    <span class="item">AWS S3 Free Tier</span>
+    <span class="dot"></span>
+    <span class="item">Python + SQLite</span>
+    <span class="dot"></span>
+    <span class="item">Power BI Desktop / ECharts (offline HTML)</span>
+    <span class="dot"></span>
+    <span class="item">GitHub</span>
+  </div>
+</div>
+</body>
+</html>
