@@ -1,0 +1,57 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install pinned dependencies
+        run: pip install -r requirements.txt
+
+      - name: Vendor dashboard libraries (pinned CDN builds)
+        run: |
+          mkdir -p dashboard/vendor
+          curl -fsSL https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js -o dashboard/vendor/echarts.min.js
+          curl -fsSL https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js -o dashboard/vendor/topojson-client.min.js
+          curl -fsSL https://cdn.jsdelivr.net/npm/us-atlas@3.0.0/states-10m.json -o /tmp/states-10m.json
+          { printf 'window.US_TOPO = '; printf '%s' "$(cat /tmp/states-10m.json)"; printf '\n;'; } > dashboard/vendor/us-topo.js
+
+      - name: Run the full pipeline (seeded, byte-identical rebuilds)
+        run: |
+          python scripts/generate_loans.py
+          python scripts/clean_loans.py
+          python scripts/risk_model.py
+          python scripts/load_database.py
+          python scripts/run_analysis.py
+          python scripts/export_dashboard_data.py
+          python scripts/make_dashboard_pngs.py
+
+      - name: Commit artifacts back to main
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data sql/loans.db sql/results reports dashboard/data.js dashboard/vendor dashboard/screenshots
+          if git diff --cached --quiet; then
+            echo "Artifacts already up to date - nothing to commit."
+          else
+            git commit -m "chore: rebuild datasets, database, dashboard bundle and screenshots"
+            git push origin HEAD:main
+          fi
