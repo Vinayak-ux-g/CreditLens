@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CreditLens - Loan Default Risk Dashboard</title>
+<script src="vendor/echarts.min.js"></script>
+<script src="vendor/topojson-client.min.js"></script>
+<script src="vendor/us-topo.js"></script>
+<script src="data.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --canvas: #EDEFF2; --card: #FFFFFF; --border: #E1E5E9;
+    --ink: #252423; --sub: #6B7280; --muted: #9AA3AB;
+    --blue: #118DFF; --navy: #12239E; --magenta: #E40087; --gold: #FFB900;
+    --graybar: #C9D1D9; --chipbg: #E8F1FE; --chiptx: #0B5FBD;
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    background: var(--canvas); color: var(--ink);
+    -webkit-font-smoothing: antialiased; font-size: 14px;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- header ---------- */
+  .appbar {
+    background: var(--navy); color: #fff; display: flex; align-items: center;
+    padding: 0 26px; height: 56px; gap: 18px; position: sticky; top: 0; z-index: 50;
+  }
+  .appbar .brand { font-size: 19px; font-weight: 700; letter-spacing: .2px; }
+  .appbar .sub { color: #B9C4F0; font-size: 13px; margin-top: 2px; }
+  .tabs { margin-left: auto; display: flex; height: 100%; }
+  .tabs button {
+    background: none; border: none; color: #93A0D6; font: inherit; font-size: 13.5px;
+    padding: 0 22px; cursor: pointer; height: 100%; border-bottom: 3px solid transparent;
+  }
+  .tabs button:hover { color: #dfe5fb; }
+  .tabs button.active { color: #fff; font-weight: 600; border-bottom-color: var(--gold); }
+  .appbar .badge {
+    background: rgba(255,255,255,.12); border-radius: 12px; font-size: 11.5px;
+    padding: 3px 10px; color: #cfd8f8;
+  }
+
+  .layout { display: flex; min-height: calc(100vh - 56px - 42px); }
+
+  /* ---------- slicer rail ---------- */
+  .slicers {
+    width: 205px; flex: 0 0 205px; background: var(--card);
+    border-right: 1px solid var(--border); padding: 18px 16px;
+    position: sticky; top: 56px; height: calc(100vh - 56px - 42px);
+    overflow-y: auto;
+  }
+  .slicers h3 { font-size: 11px; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 14px; }
+  .slabel { font-size: 12px; color: var(--sub); margin: 14px 0 6px; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chips button {
+    border: none; background: #F1F4F8; color: #42506B; font: inherit; font-size: 12px;
+    padding: 4px 10px; border-radius: 6px; cursor: pointer;
+  }
+  .chips button:hover { background: #e3e9f2; }
+  .chips button.on { background: var(--blue); color: #fff; }
+  .chips button.on.hot { background: var(--magenta); }
+  select {
+    width: 100%; font: inherit; font-size: 12.5px; color: #42506B;
+    padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+    background: #fff; cursor: pointer;
+  }
+  .resetbtn {
+    margin-top: 20px; width: 100%; border: 1px solid var(--border); background: #F1F4F8;
+    color: #42506B; font: inherit; font-size: 12.5px; padding: 8px; border-radius: 8px;
+    cursor: pointer;
+  }
+  .resetbtn:hover { background: #e3e9f2; }
+
+  /* ---------- main ---------- */
+  main { flex: 1; padding: 18px 22px 26px; min-width: 0; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .kpi-row { display: grid; gap: 12px; margin-bottom: 14px; }
+  .kpis-6 { grid-template-columns: repeat(6, 1fr); }
+  .kpis-5 { grid-template-columns: repeat(5, 1fr); }
+  .kpi {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 16px 11px; position: relative;
+  }
+  .kpi .accent { position: absolute; top: 15px; left: 0; width: 4px; height: 34px;
+    border-radius: 0 3px 3px 0; }
+  .kpi .klabel { font-size: 11px; letter-spacing: .8px; color: var(--sub); font-weight: 600; }
+  .kpi .kvalue { font-size: 25px; font-weight: 700; margin: 4px 0 2px; }
+  .kpi .ksub { font-size: 11.5px; color: var(--muted); }
+
+  .grid { display: grid; gap: 14px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 16px 8px;
+  }
+  .card h4 { font-size: 14px; font-weight: 700; }
+  .card .csub { font-size: 12px; color: var(--sub); margin-top: 1px; margin-bottom: 4px; }
+  .chart { width: 100%; }
+  #chMonthly { height: 330px; }
+  #chGrade, #chPurpose, #chIncome, #chDti { height: 295px; }
+  #chGradeFunded, #chPurposes { height: 300px; }
+  #chStates, #chTopStates { height: 425px; }
+  #chScoreDist, #chRoc { height: 295px; }
+  #chKs, #chIv, #chWoe { height: 280px; }
+  #bandTable thead th { cursor: default; white-space: nowrap; }
+  #bandTable td { font-variant-numeric: tabular-nums; }
+  .span2 { grid-column: span 2; }
+  .maptools { display: flex; gap: 6px; margin-left: auto; }
+  .maptools button {
+    border: 1px solid var(--border); background: #F1F4F8; color: #42506B;
+    font: inherit; font-size: 11.5px; padding: 3px 10px; border-radius: 6px; cursor: pointer;
+  }
+  .maptools button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .cardhead { display: flex; align-items: flex-start; gap: 12px; }
+
+  /* ---------- explorer ---------- */
+  .xbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .fchip {
+    background: var(--chipbg); color: var(--chiptx); border: 1px solid #BBD6FD;
+    border-radius: 14px; font-size: 12px; padding: 4px 12px;
+  }
+  .fchip b { font-weight: 600; }
+  .xbar input[type=text] {
+    font: inherit; font-size: 13px; padding: 8px 12px; border: 1px solid var(--border);
+    border-radius: 8px; width: 260px; background: #fff;
+  }
+  .xbar input[type=text]:focus { outline: 2px solid #9CC8FD; border-color: var(--blue); }
+  .xbar .count { color: var(--sub); font-size: 13px; margin-left: auto; }
+  .xkpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  thead th {
+    background: var(--navy); color: #fff; font-size: 12px; font-weight: 600;
+    text-align: left; padding: 10px 12px; white-space: nowrap; cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { background: #1a2cc4; }
+  thead th .arr { font-size: 10px; margin-left: 4px; color: var(--gold); }
+  tbody td { font-size: 13px; padding: 8px 12px; border-top: 1px solid #EEF1F5;
+    white-space: nowrap; }
+  tbody tr:nth-child(even) { background: #F7F9FC; }
+  tbody tr:hover { background: #EAF3FE; }
+  .status { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px;
+    border-radius: 10px; }
+  .status.def { background: var(--magenta); color: #fff; }
+  .status.ok { background: #E6F4EC; color: #137A44; }
+  .pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end;
+    margin-top: 12px; font-size: 12.5px; color: var(--sub); }
+  .pager button {
+    border: 1px solid var(--border); background: #fff; font: inherit; font-size: 12.5px;
+    padding: 6px 12px; border-radius: 7px; cursor: pointer; color: #42506B;
+  }
+  .pager button:disabled { opacity: .4; cursor: default; }
+  .pager select { width: auto; padding: 6px 8px; }
+
+  footer {
+    background: var(--card); border-top: 1px solid var(--border); color: var(--muted);
+    font-size: 12px; padding: 11px 26px; display: flex; gap: 18px;
+  }
+  footer b { color: var(--sub); font-weight: 600; }
+
+  @media (max-width: 1250px) {
+    .kpis-6 { grid-template-columns: repeat(3, 1fr); }
+    .kpis-5 { grid-template-columns: repeat(3, 1fr); }
+    .span2 { grid-column: span 1; }
+    .slicers { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="appbar">
+  <div>
+    <div class="brand">CreditLens</div>
+    <div class="sub">Loan Default Risk Report</div>
+  </div>
+  <div class="badge" id="rowBadge">30,366 loans</div>
+  <div class="badge" id="modelBadge">Scorecard</div>
+  <nav class="tabs">
+    <button data-page="overview" class="active">Overview</button>
+    <button data-page="risk">Risk Deep-Dive</button>
+    <button data-page="explorer">Loan Explorer</button>
+    <button data-page="model">Model &amp; Scorecard</button>
+  </nav>
+</div>
+
+<div class="layout">
+  <aside class="slicers">
+    <h3>SLICERS</h3>
+    <div class="slabel">Grade</div>
+    <div class="chips" id="slGrade"></div>
+    <div class="slabel">Term (months)</div>
+    <div class="chips" id="slTerm"></div>
+    <div class="slabel">Purpose</div>
+    <select id="slPurpose"></select>
+    <div class="slabel">Income band</div>
+    <select id="slIncome">
+      <option value="all">All incomes</option>
+      <option value="0">0 - 25k</option>
+      <option value="1">25k - 50k</option>
+      <option value="2">50k - 75k</option>
+      <option value="3">75k and above</option>
+    </select>
+    <div class="slabel">Status</div>
+    <div class="chips" id="slStatus"></div>
+    <button class="resetbtn" id="btnReset">Reset all filters</button>
+  </aside>
+
+  <main>
+    <!-- ================= PAGE 1: OVERVIEW ================= -->
+    <section class="page active" id="page-overview">
+      <div class="kpi-row kpis-6" id="kpiOverview"></div>
+      <div class="grid" style="grid-template-columns: 1fr;">
+        <div class="card">
+          <div class="cardhead">
+            <div>
+              <h4 id="trendTitle">Monthly originations doubled while default rate drifted down</h4>
+              <div class="csub">Bars: loans funded per month &nbsp;|&nbsp; Line: default rate of the month (6-month rolling)</div>
+            </div>
+          </div>
+          <div id="chMonthly" class="chart"></div>
+        </div>
+      </div>
+      <div class="grid" style="grid-template-columns: 1fr 2fr; margin-top: 14px;">
+        <div class="card">
+          <h4>Funded by grade ($M)</h4>
+          <div class="csub">Grade mix of the filtered selection</div>
+          <div id="chGradeFunded" class="chart"></div>
+        </div>
+        <div class="card">
+          <h4>Loans by purpose</h4>
+          <div class="csub">Volume of the filtered selection, top 10</div>
+          <div id="chPurposes" class="chart"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PAGE 2: RISK DEEP-DIVE ================= -->
+    <section class="page" id="page-risk">
+      <div class="kpi-row kpis-5" id="kpiRisk"></div>
+      <div class="grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="card">
+          <h4>Default rate by grade</h4>
+          <div class="csub">The grade ladder is the strongest single risk signal</div>
+          <div id="chGrade" class="chart"></div>
+        </div>
+        <div class="card">
+          <h4>Default rate by purpose</h4>
+          <div class="csub">Sorted worst-first; small business leads</div>
+          <div id="chPurpose" class="chart"></div>
+        </div>
+        <div class="card">
+          <h4>Default rate by income band</h4>
+          <div class="csub">Annual income of the borrower ($)</div>
+          <div id="chIncome" class="chart"></div>
+        </div>
+        <div class="card">
+          <h4>Default rate by DTI band</h4>
+          <div class="csub">Debt-to-income ratio (%) - watch the 30+ cliff</div>
+          <div id="chDti" class="chart"></div>
+        </div>
+      </div>
+      <div class="grid" style="grid-template-columns: 1.3fr 1fr; margin-top: 14px;">
+        <div class="card">
+          <div class="cardhead">
+            <div>
+              <h4>Default risk across the map</h4>
+              <div class="csub" id="mapSub">Hover a state; drag to pan, scroll to zoom</div>
+            </div>
+            <div class="maptools">
+              <button id="mapRate" class="on">Default rate</button>
+              <button id="mapUsd">Defaulted $</button>
+            </div>
+          </div>
+          <div id="chStates" class="chart"></div>
+        </div>
+        <div class="card">
+          <h4>Where the losses are</h4>
+          <div class="csub">Top 10 states by defaulted principal - volume states dominate the count</div>
+          <div id="chTopStates" class="chart"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PAGE 3: LOAN EXPLORER ================= -->
+    <section class="page" id="page-explorer">
+      <div class="xbar" id="xChips"></div>
+      <div class="xkpi" id="kpiExplorer"></div>
+      <table id="loanTable">
+        <thead><tr id="theadRow"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="pager">
+        <span>Rows per page</span>
+        <select id="pageSize">
+          <option>15</option><option>30</option><option>50</option>
+        </select>
+        <button id="pgPrev">&#8592; Prev</button>
+        <span id="pgInfo" class="num"></span>
+        <button id="pgNext">Next &#8594;</button>
+      </div>
+    </section>
+
+    <!-- ================= PAGE 4: MODEL & SCORECARD ================= -->
+    <section class="page" id="page-model">
+      <div class="kpi-row kpis-5" id="kpiModel"></div>
+      <div class="grid" style="grid-template-columns: 1.35fr 1fr;">
+        <div class="card">
+          <h4>Scores separate the outcomes</h4>
+          <div class="csub">Bars: loans per score band &nbsp;|&nbsp; Line: default rate of the band - slicers apply</div>
+          <div id="chScoreDist" class="chart"></div>
+        </div>
+        <div class="card">
+          <h4>ROC - the scorecard against the bank's grade and FICO</h4>
+          <div class="csub">Holdout validation on 9,110 untouched loans (30%)</div>
+          <div id="chRoc" class="chart"></div>
+        </div>
+      </div>
+      <div class="grid" style="grid-template-columns: 1fr 1fr; margin-top: 14px;">
+        <div class="card">
+          <h4>The KS gap - how far apart the curves run</h4>
+          <div class="csub">Cumulative share of defaults vs performs as the score rises</div>
+          <div id="chKs" class="chart"></div>
+        </div>
+        <div class="card">
+          <h4>What drives the score (Information Value)</h4>
+          <div class="csub">DTI dominates - gray bars were dropped by the IV filter</div>
+          <div id="chIv" class="chart"></div>
+        </div>
+      </div>
+      <div class="grid" style="grid-template-columns: 1fr 1.15fr; margin-top: 14px;">
+        <div class="card">
+          <h4>Weight of Evidence by bin</h4>
+          <div class="csub">Positive = safer than the average bin; pick a feature</div>
+          <div style="margin: 4px 0 6px;"><select id="woeFeature"></select></div>
+          <div id="chWoe" class="chart"></div>
+        </div>
+        <div class="card" style="padding-bottom: 14px;">
+          <h4>Score band report</h4>
+          <div class="csub" id="bandSub">Default rate by score band of the current selection</div>
+          <table id="bandTable">
+            <thead><tr>
+              <th>Score band</th><th>Loans</th><th>Share</th>
+              <th>Default rate</th><th>Avg predicted PD</th><th>Defaulted $</th>
+            </tr></thead>
+            <tbody id="bandBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <span><b>CreditLens</b> - end-to-end loan risk analytics</span>
+  <span>Source: <b>sql/loans.db</b> (SQLite, 30,366 clean loans, Jan 2021 - Oct 2026)</span>
+  <span>Slicers filter every page live - no server, fully offline</span>
+</footer>
+
+<script>
+/* =============================================================
+   CreditLens dashboard logic
+   - one pass over the column arrays per filter change
+   - aggregations feed ECharts + KPI cards + the explorer table
+   ============================================================= */
+const C = window.CL;
+const T = { blue: '#118DFF', navy: '#12239E', magenta: '#E40087', gold: '#FFB900',
+            gray: '#C9D1D9', ink: '#252423', sub: '#6B7280', axis: '#E5E7EB' };
+const R = C.rows;
+
+/* ---------------- first-deploy guard (GitHub/Vercel) ----------------
+   The loan-level rows, chart libraries and screenshots are rebuilt and
+   committed by .github/workflows/build.yml right after the first push.
+   If this page is opened before that commit lands (or before the pipeline
+   is run locally), show a banner instead of a blank page. */
+const DATA_READY = !!(C && C.rows && C.rows.id && C.rows.id.length > 0);
+const VENDOR_OK = typeof echarts !== 'undefined';
+if (!DATA_READY || !VENDOR_OK) {
+  document.addEventListener('DOMContentLoaded', function () {
+    var b = document.createElement('div');
+    b.setAttribute('style', 'background:#12239E;color:#fff;font:600 14px/1.5 Segoe UI,Arial,sans-serif;padding:14px 28px;text-align:center;letter-spacing:.2px');
+    b.textContent = 'Loan-level rows + chart libraries are rebuilt by GitHub Actions (.github/workflows/build.yml) - this page is fully populated a few minutes after the first push. Locally: run scripts/generate_loans.py ... scripts/export_dashboard_data.py (README, steps 1-6).';
+    document.body.insertBefore(b, document.body.firstChild);
+  });
+}
+
+/* model bundle (scorecard artifacts exported from the SQL layer) */
+const MODEL = C.model;
+const M = MODEL.metrics;
+const BND = MODEL.bands;             // edges [500, 525, ...], labels ['<500', ...]
+function bandOf(s) {
+  const E = BND.edges;
+  for (let i = 0; i < E.length; i++) if (s < E[i]) return i;
+  return E.length;                   // the top open band, e.g. '625+'
+}
+
+const fmtInt = n => n.toLocaleString('en-US');
+const fmtUsd = n => '$' + Math.round(n).toLocaleString('en-US');
+const fmtMusd = n => '$' + (n/1e6).toFixed(1) + 'M';
+const fmtPct = n => n.toFixed(2) + '%';
+const fmtPct1 = n => n.toFixed(1) + '%';
+
+/* ------------------------- filter state ------------------------- */
+let S = { grades: new Set([0,1,2,3,4,5,6]), term: 'all', purpose: 'all',
+          income: 'all', status: 'all', search: '',
+          sortKey: 'amt', sortDir: -1, page: 0, pageSize: 15,
+          mapMetric: 'rate' };
+
+function incomeBand(inc) {
+  return inc < 25000 ? 0 : inc < 50000 ? 1 : inc < 75000 ? 2 : 3;
+}
+
+/* --------------------- single-pass aggregation ------------------ */
+let AGG = null;
+function recompute() {
+  const nm = C.months.length, np = C.purposes.length, ns = C.states.length;
+  const A = {
+    n: 0, def: 0, funded: 0, defUsd: 0, amtSum: 0, incSum: 0, dtiSum: 0,
+    monthlyN: new Array(nm).fill(0), monthlyDef: new Array(nm).fill(0),
+    gradeN: new Array(7).fill(0), gradeDef: new Array(7).fill(0), gradeAmt: new Array(7).fill(0),
+    purpN: new Array(np).fill(0), purpDef: new Array(np).fill(0),
+    incN: [0,0,0,0], incDef: [0,0,0,0],
+    dtiN: [0,0,0,0], dtiDef: [0,0,0,0],
+    stN: new Array(ns).fill(0), stDef: new Array(ns).fill(0), stUsd: new Array(ns).fill(0),
+    hrN: 0, hrDef: 0, defRateSum: 0, okRateSum: 0,
+    bandN: new Array(BND.labels.length).fill(0),
+    bandDef: new Array(BND.labels.length).fill(0),
+    bandUsd: new Array(BND.labels.length).fill(0),
+    bandPd: new Array(BND.labels.length).fill(0),
+    scoreSum: 0, pdSum: 0, belowCut: 0,
+    idx: []
+  };
+  const q = S.search.trim().toLowerCase();
+  for (let i = 0; i < C.n; i++) {
+    const g = R.g[i];
+    if (!S.grades.has(g)) continue;
+    const term = R.term[i];
+    if (S.term !== 'all' && term !== S.term) continue;
+    if (S.purpose !== 'all' && R.p[i] !== S.purpose) continue;
+    if (S.income !== 'all' && incomeBand(R.inc[i]) !== +S.income) continue;
+    if (S.status !== 'all' && R.d[i] !== S.status) continue;
+    if (q) {
+      const hay = (R.id[i] + ' ' + C.purposes[R.p[i]] + ' ' + C.states[R.s[i]] + ' '
+                   + C.grades[g] + ' ' + R.sub[i]).toLowerCase();
+      if (!hay.includes(q)) continue;
+    }
+    const d = R.d[i], amt = R.amt[i];
+    A.n++; A.def += d; A.funded += amt; A.amtSum += amt; A.incSum += R.inc[i]; A.dtiSum += R.dti[i];
+    if (d) A.defUsd += amt;
+    const m = R.m[i];
+    A.monthlyN[m]++; A.monthlyDef[m] += d;
+    A.gradeN[g]++; A.gradeDef[g] += d; A.gradeAmt[g] += amt;
+    const p = R.p[i]; A.purpN[p]++; A.purpDef[p] += d;
+    const ib = incomeBand(R.inc[i]); A.incN[ib]++; A.incDef[ib] += d;
+    const dt = R.dti[i], db = dt < 10 ? 0 : dt < 20 ? 1 : dt < 30 ? 2 : 3;
+    A.dtiN[db]++; A.dtiDef[db] += d;
+    const st = R.s[i]; A.stN[st]++; A.stDef[st] += d;
+    if (d) A.stUsd[st] += amt;
+    if (g >= 4 && dt >= 30) { A.hrN++; A.hrDef += d; }
+    if (d) A.defRateSum += R.rate[i]; else A.okRateSum += R.rate[i];
+    const bi = bandOf(R.score[i]);
+    A.bandN[bi]++; A.bandDef[bi] += d; if (d) A.bandUsd[bi] += amt;
+    A.bandPd[bi] += R.pd[i];
+    A.scoreSum += R.score[i]; A.pdSum += R.pd[i];
+    if (R.score[i] < M.cutoff) A.belowCut++;
+    A.idx.push(i);
+  }
+  A.dtiAvg = A.n ? A.dtiSum / A.n : 0;
+  AGG = A;
+}
+
+/* ---------------------------- charts ---------------------------- */
+const charts = {};
+function mkChart(id) {
+  if (!charts[id]) charts[id] = echarts.init(document.getElementById(id));
+  return charts[id];
+}
+const tooltipBase = {
+  backgroundColor: '#1E293B', borderColor: '#334155', borderWidth: 1,
+  textStyle: { color: '#F1F5F9', fontSize: 12 },
+};
+const axisBase = {
+  axisLine: { lineStyle: { color: '#D8DCE0' } }, axisTick: { show: false },
+  axisLabel: { color: T.sub, fontSize: 10.5 },
+  splitLine: { lineStyle: { color: '#F1F3F6' } },
+};
+
+function barOption(cats, vals, colors, yFmt) {
+  return {
+    grid: { left: 8, right: 14, top: 18, bottom: 4, containLabel: true },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' },
+      backgroundColor: tooltipBase.backgroundColor, borderColor: tooltipBase.borderColor,
+      textStyle: tooltipBase.textStyle,
+      valueFormatter: v => yFmt(v) },
+    xAxis: { type: 'category', data: cats, ...axisBase, splitLine: { show: false } },
+    yAxis: { type: 'value', ...axisBase },
+    series: [{
+      type: 'bar', barWidth: '58%', data: vals.map((v, i) => ({
+        value: v, itemStyle: { color: colors[i], borderRadius: [3, 3, 0, 0] } })),
+      label: { show: true, position: 'top', fontSize: 10, color: T.sub,
+               formatter: p => yFmt(p.value) },
+    }],
+  };
+}
+
+function hbarOption(cats, vals, colors, xFmt) {
+  return {
+    grid: { left: 8, right: 46, top: 6, bottom: 4, containLabel: true },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' },
+      backgroundColor: tooltipBase.backgroundColor, borderColor: tooltipBase.borderColor,
+      textStyle: tooltipBase.textStyle, valueFormatter: v => xFmt(v) },
+    xAxis: { type: 'value', ...axisBase, axisLabel: { show: false }, splitLine: { show: false } },
+    yAxis: { type: 'category', data: cats, ...axisBase, splitLine: { show: false },
+             axisLabel: { color: T.ink, fontSize: 10.5 } },
+    series: [{
+      type: 'bar', barWidth: '62%', data: vals.map((v, i) => ({
+        value: v, itemStyle: { color: colors[i], borderRadius: [0, 3, 3, 0] } })),
+      label: { show: true, position: 'right', fontSize: 10, color: T.sub,
+               formatter: p => xFmt(p.value) },
+    }],
+  };
+}
+
+function renderOverviewCharts() {
+  // monthly combo
+  const ch = mkChart('chMonthly'); ch.clear();
+  const roll = AGG.monthlyN.map((n, i) => {
+    let s = 0, c = 0;
+    for (let k = Math.max(0, i - 5); k <= i; k++) { s += AGG.monthlyN[k] ? 100 * AGG.monthlyDef[k] / AGG.monthlyN[k] : 0; if (AGG.monthlyN[k]) c++; }
+    return c ? +(s / c).toFixed(2) : null;
+  });
+  ch.setOption({
+    grid: { left: 8, right: 52, top: 18, bottom: 4, containLabel: true },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' },
+      backgroundColor: tooltipBase.backgroundColor, borderColor: tooltipBase.borderColor,
+      textStyle: tooltipBase.textStyle,
+      formatter: ps => {
+        const i = ps[0].dataIndex;
+        const r = AGG.monthlyN[i] ? (100 * AGG.monthlyDef[i] / AGG.monthlyN[i]).toFixed(1) : '0';
+        return `<b>${C.months[i]}</b><br/>Loans funded: <b>${fmtInt(AGG.monthlyN[i])}</b><br/>Default rate: <b>${r}%</b>`;
+      } },
+    xAxis: { type: 'category', data: C.months, ...axisBase, splitLine: { show: false },
+             axisLabel: { ...axisBase.axisLabel, interval: 5 } },
+    yAxis: [
+      { type: 'value', ...axisBase, name: 'loans', nameTextStyle: { color: T.sub } },
+      { type: 'value', min: 0, max: v => Math.max(8, Math.ceil(v.max)), ...axisBase,
+        axisLabel: { formatter: '{value}%', color: T.sub, fontSize: 10.5 },
+        splitLine: { show: false } },
+    ],
+    series: [
+      { type: 'bar', name: 'Loans funded', barWidth: '62%', data: AGG.monthlyN,
+        itemStyle: { color: T.blue, borderRadius: [3, 3, 0, 0] } },
+      { type: 'line', name: 'Default rate (6-mo avg)', yAxisIndex: 1, data: roll,
+        smooth: true, symbol: 'none', lineStyle: { width: 2.6, color: T.magenta } },
+    ],
+  });
+
+  // funded by grade
+  const gvals = AGG.gradeAmt.map(v => +(v / 1e6).toFixed(1));
+  mkChart('chGradeFunded').clear();
+  charts.chGradeFunded.setOption(barOption(
+    C.grades, gvals, C.grades.map(g => T.blue), v => '$' + v + 'M'));
+
+  // purposes by volume
+  const pairs = C.purposes.map((p, i) => ({ p, n: AGG.purpN[i] }))
+    .sort((a, b) => b.n - a.n).slice(0, 10).reverse();
+  mkChart('chPurposes').clear();
+  charts.chPurposes.setOption(hbarOption(
+    pairs.map(x => x.p.replace(/_/g, ' ')), pairs.map(x => x.n),
+    pairs.map((x, i) => i === pairs.length - 1 ? T.blue : T.gray), fmtInt));
+}
+
+function rateOption(cats, defs, ns, colors) {
+  const rates = defs.map((d, i) => ns[i] ? +(100 * d / ns[i]).toFixed(1) : 0);
+  return barOption(cats, rates, colors, v => v + '%');
+}
+
+function renderRiskCharts() {
+  const worstG = AGG.gradeDef.reduce((best, d, i) =>
+    (AGG.gradeN[i] && 100 * d / AGG.gradeN[i] > 100 * AGG.gradeDef[best] / AGG.gradeN[best]) ? i : best, 0);
+  mkChart('chGrade').clear();
+  charts.chGrade.setOption(rateOption(C.grades, AGG.gradeDef, AGG.gradeN,
+    C.grades.map((g, i) => i === worstG ? T.magenta : T.gray)));
+
+  const pairs = C.purposes.map((p, i) => ({ p, r: AGG.purpN[i] ? 100 * AGG.purpDef[i] / AGG.purpN[i] : 0 }))
+    .sort((a, b) => a.r - b.r);
+  mkChart('chPurpose').clear();
+  charts.chPurpose.setOption(hbarOption(
+    pairs.map(x => x.p.replace(/_/g, ' ')), pairs.map(x => +x.r.toFixed(1)),
+    pairs.map((x, i) => i === pairs.length - 1 ? T.magenta : T.gray), v => v + '%'));
+
+  const incLabels = ['0-25k', '25-50k', '50-75k', '75k+'];
+  const hiI = [0,1,2,3].reduce((b, i) => (AGG.incN[i] ? AGG.incDef[i]/AGG.incN[i] : 0) > (AGG.incN[b] ? AGG.incDef[b]/AGG.incN[b] : 0) ? i : b, 0);
+  mkChart('chIncome').clear();
+  charts.chIncome.setOption(rateOption(incLabels, AGG.incDef, AGG.incN,
+    incLabels.map((l, i) => i === hiI ? T.blue : T.gray)));
+
+  const dtiLabels = ['0-10', '10-20', '20-30', '30+'];
+  const hiD = [0,1,2,3].reduce((b, i) => (AGG.dtiN[i] ? AGG.dtiDef[i]/AGG.dtiN[i] : 0) > (AGG.dtiN[b] ? AGG.dtiDef[b]/AGG.dtiN[b] : 0) ? i : b, 0);
+  mkChart('chDti').clear();
+  charts.chDti.setOption(rateOption(dtiLabels, AGG.dtiDef, AGG.dtiN,
+    dtiLabels.map((l, i) => i === hiD ? T.magenta : T.gray)));
+
+  renderMap();
+  renderTopStates();
+}
+
+function renderTopStates() {
+  const top = C.stateNames.map((name, i) => ({ name: name, usd: AGG.stUsd[i], d: AGG.stDef[i] }))
+    .sort((a, b) => b.usd - a.usd).slice(0, 10).reverse();
+  const ch = mkChart('chTopStates'); ch.clear();
+  ch.setOption(hbarOption(
+    top.map(v => v.name), top.map(v => Math.round(v.usd / 1e6)),
+    top.map((v, i) => i === top.length - 1 ? T.navy : T.gray), v => '$' + v + 'M'));
+}
+
+/* ------------------- page 4: model & scorecard ------------------ */
+function renderWoe() {
+  const f = MODEL.woe[document.getElementById('woeFeature').value];
+  const ch = mkChart('chWoe'); ch.clear();
+  ch.setOption({
+    grid: { left: 8, right: 14, top: 22, bottom: 4, containLabel: true },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' },
+      backgroundColor: tooltipBase.backgroundColor, borderColor: tooltipBase.borderColor,
+      textStyle: tooltipBase.textStyle,
+      formatter: ps => {
+        const i = ps[0].dataIndex;
+        return '<b>' + f.bins[i] + '</b><br/>Loans: <b>' + fmtInt(f.n[i]) + '</b>'
+          + '<br/>Bad rate: <b>' + f.badRate[i] + '%</b>'
+          + '<br/>WOE: <b>' + f.woe[i].toFixed(3) + '</b>'
+          + (f.points ? '<br/>Scorecard points: <b>' + f.points[i] + '</b>' : '');
+      } },
+    xAxis: { type: 'category', data: f.bins, ...axisBase, splitLine: { show: false },
+             axisLabel: { color: T.ink, fontSize: 10.5, interval: 0,
+                          rotate: f.bins.length > 6 ? 26 : 0 } },
+    yAxis: { type: 'value', ...axisBase },
+    series: [{ type: 'bar', barWidth: '58%',
+      data: f.woe.map(w => ({ value: w,
+        itemStyle: { color: w >= 0 ? T.blue : T.magenta,
+                     borderRadius: w >= 0 ? [3, 3, 0, 0] : [0, 0, 3, 3] },
+        label: { position: w >= 0 ? 'top' : 'bottom' } })),
+      label: { show: true, fontSize: 9.5, color: T.sub, formatter: p => p.value.toFixed(2) },
+      markLine: { silent: true, symbol: 'none', label: { show: false },
+        lineStyle: { color: '#C9D1D9', width: 1 }, data: [{ yAxis: 0 }] },
+    }],
+  });
+}
+
+function renderModelCharts() {
+  const A = AGG;
+  const avgPd = A.n ? 100 * A.pdSum / A.n : 0;
+  const dr = A.n ? 100 * A.def / A.n : 0;
+  document.getElementById('kpiModel').innerHTML = [
+    kpiCard('AUC - 30% HOLDOUT', M.auc.toFixed(3),
+            'grade-only ' + M.aucGrade.toFixed(3) + ' · FICO-only ' + M.aucFico.toFixed(3), T.blue),
+    kpiCard('KS STATISTIC', M.ks.toFixed(3),
+            'grade ' + M.ksGrade.toFixed(3) + ' · FICO ' + M.ksFico.toFixed(3)),
+    kpiCard('AVG PREDICTED PD', fmtPct(avgPd),
+            'vs ' + fmtPct(dr) + ' actual in view - slicers apply', T.magenta),
+    kpiCard('AVG SCORE IN VIEW', fmtInt(A.n ? A.scoreSum / A.n : 0),
+            'cutoff ' + M.cutoff + ' · ' + fmtPct1(A.n ? 100 * A.belowCut / A.n : 0) + ' of view below it'),
+    kpiCard('DEFAULTS CAUGHT AT CUTOFF', fmtPct1(M.caughtPct),
+            'by declining ' + fmtPct1(M.declinePct) + ' of applications', T.magenta),
+  ].join('');
+
+  // score distribution: bars = loans per band, line = default rate per band
+  const dist = mkChart('chScoreDist'); dist.clear();
+  dist.setOption({
+    grid: { left: 8, right: 48, top: 18, bottom: 4, containLabel: true },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' },
+      backgroundColor: tooltipBase.backgroundColor, borderColor: tooltipBase.borderColor,
+      textStyle: tooltipBase.textStyle,
+      formatter: ps => {
+        const i = ps[0].dataIndex, n = A.bandN[i];
+        return '<b>' + BND.labels[i] + ' pts</b><br/>Loans: <b>' + fmtInt(n) + '</b>'
+          + '<br/>Default rate: <b>' + (n ? (100 * A.bandDef[i] / n).toFixed(1) : '0') + '%</b>'
+          + '<br/>Avg predicted PD: <b>' + (n ? fmtPct(100 * A.bandPd[i] / n) : '-') + '</b>';
+      } },
+    xAxis: { type: 'category', data: BND.labels, ...axisBase, splitLine: { show: false } },
+    yAxis: [
+      { type: 'value', ...axisBase, name: 'loans', nameTextStyle: { color: T.sub } },
+      { type: 'value', min: 0, max: v => Math.max(45, Math.ceil(v.max)), ...axisBase,
+        axisLabel: { formatter: '{value}%', color: T.sub, fontSize: 10.5 },
+        splitLine: { show: false } },
+    ],
+    series: [
+      { type: 'bar', name: 'Loans', barWidth: '58%', data: A.bandN,
+        itemStyle: { color: T.blue, borderRadius: [3, 3, 0, 0] } },
+      { type: 'line', name: 'Default rate', yAxisIndex: 1, smooth: true,
+        symbol: 'circle', symbolSize: 5, itemStyle: { color: T.magenta },
+        lineStyle: { width: 2.6, color: T.magenta },
+        data: BND.labels.map((l, i) =>
+          A.bandN[i] ? +(100 * A.bandDef[i] / A.bandN[i]).toFixed(1) : null) },
+    ],
+  });
+
+  // ROC: scorecard vs grade vs FICO (holdout)
+  const roc = mkChart('chRoc'); roc.clear();
+  const curve = (name, fpr, tpr, color, dash) => ({
+    type: 'line', name, showSymbol: false, symbol: 'none',
+    lineStyle: { width: 2.6, color, type: dash ? 'dashed' : 'solid' },
+    itemStyle: { color }, data: fpr.map((x, i) => [x, tpr[i]]),
+  });
+  roc.setOption({
+    grid: { left: 8, right: 16, top: 34, bottom: 4, containLabel: true },
+    tooltip: { trigger: 'item', backgroundColor: tooltipBase.backgroundColor,
+      borderColor: tooltipBase.borderColor, textStyle: tooltipBase.textStyle,
+      formatter: p => p.seriesName + '<br/>' + (p.value[1] * 100).toFixed(1)
+                  + '% of defaults caught at ' + (p.value[0] * 100).toFixed(1)
+                  + '% of good loans declined' },
+    legend: { top: 0, right: 0, itemWidth: 14, itemHeight: 8,
+      textStyle: { fontSize: 10.5, color: T.sub } },
+    xAxis: { type: 'value', min: 0, max: 1, ...axisBase,
+      name: 'good loans declined', nameTextStyle: { color: T.sub, fontSize: 10 },
+      axisLabel: { formatter: v => (v * 100).toFixed(0) + '%', color: T.sub, fontSize: 10.5 } },
+    yAxis: { type: 'value', min: 0, max: 1, ...axisBase,
+      name: 'defaults caught', nameTextStyle: { color: T.sub, fontSize: 10 },
+      axisLabel: { formatter: v => (v * 100).toFixed(0) + '%', color: T.sub, fontSize: 10.5 } },
+    series: [
+      curve('Scorecard (AUC ' + M.auc.toFixed(3) + ')', MODEL.roc.fpr, MODEL.roc.tpr, T.blue),
+      curve('Grade ladder (' + M.aucGrade.toFixed(3) + ')', MODEL.roc.fprGrade, MODEL.roc.tprGrade, T.navy, true),
+      curve('FICO (' + M.aucFico.toFixed(3) + ')', MODEL.roc.fprFico, MODEL.roc.tprFico, '#9AA3AB', true),
+      { type: 'line', name: 'Random', silent: true, showSymbol: false, symbol: 'none',
+        lineStyle: { width: 1, color: '#D5DBE1', type: 'dashed' },
+        itemStyle: { color: '#D5DBE1' }, data: [[0, 0], [1, 1]] },
+    ],
+  });
+
+  // KS curve
+  const ks = mkChart('chKs'); ks.clear();
+  const kc = MODEL.ksCurve;
+  ks.setOption({
+    grid: { left: 8, right: 16, top: 34, bottom: 4, containLabel: true },
+    tooltip: { trigger: 'axis', backgroundColor: tooltipBase.backgroundColor,
+      borderColor: tooltipBase.borderColor, textStyle: tooltipBase.textStyle,
+      formatter: ps => '<b>' + Math.round(ps[0].value[0]) + ' pts</b>' + ps.map(p =>
+        '<br/>' + p.seriesName + ': <b>' + p.value[1].toFixed(1) + '%</b>').join('') },
+    legend: { top: 0, right: 0, itemWidth: 14, itemHeight: 8,
+      textStyle: { fontSize: 10.5, color: T.sub },
+      data: ['Defaults (cum %)', 'Performs (cum %)'] },
+    xAxis: { type: 'value', min: M.scoreMin, max: M.scoreMax, ...axisBase,
+             name: 'score', nameTextStyle: { color: T.sub, fontSize: 10 } },
+    yAxis: { type: 'value', max: 100, ...axisBase,
+      axisLabel: { formatter: '{value}%', color: T.sub, fontSize: 10.5 } },
+    series: [
+      { type: 'line', name: 'Defaults (cum %)', showSymbol: false, smooth: true,
+        data: kc.score.map((s, i) => [s, kc.bad[i]]),
+        lineStyle: { width: 2.4, color: T.magenta }, itemStyle: { color: T.magenta },
+        areaStyle: { color: 'rgba(228,0,135,.05)' } },
+      { type: 'line', name: 'Performs (cum %)', showSymbol: false, smooth: true,
+        data: kc.score.map((s, i) => [s, kc.good[i]]),
+        lineStyle: { width: 2.4, color: T.blue }, itemStyle: { color: T.blue } },
+      { type: 'line', name: 'KS', data: [], silent: true,
+        markLine: { silent: true, symbol: 'none',
+          label: { formatter: 'KS ' + (M.ks * 100).toFixed(1) + '% @ ' + kc.atScore + ' pts',
+                   fontSize: 10.5, color: T.ink, position: 'insideEndTop', rotate: 0 },
+          lineStyle: { color: T.gold, width: 1.6 },
+          data: [{ xAxis: kc.atScore }] } },
+    ],
+  });
+
+  // IV ranking: kept features colored, dropped gray
+  const ivRows = MODEL.iv.slice().sort((a, b) => a.iv - b.iv);
+  mkChart('chIv').clear();
+  charts.chIv.setOption(hbarOption(
+    ivRows.map(r => r.label), ivRows.map(r => +r.iv.toFixed(3)),
+    ivRows.map(r => r.selected ? (r.iv >= 0.3 ? T.navy : T.blue) : '#D5DBE1'),
+    v => v.toFixed(3)));
+
+  renderWoe();
+
+  // score band report (live with the slicers)
+  const cutBand = bandOf(M.cutoff);
+  let body = '', tN = 0, tD = 0, tU = 0;
+  BND.labels.forEach((lbl, i) => {
+    const n = A.bandN[i], d = A.bandDef[i], usd = A.bandUsd[i];
+    tN += n; tD += d; tU += usd;
+    const hl = i === cutBand ? ' style="background:#EAF3FE"' : '';
+    body += '<tr' + hl + '><td class="num">' + lbl + '</td><td class="num">' + fmtInt(n) + '</td>'
+      + '<td class="num">' + (A.n ? fmtPct1(100 * n / A.n) : '-') + '</td>'
+      + '<td class="num">' + (n ? fmtPct1(100 * d / n) : '-') + '</td>'
+      + '<td class="num">' + (n ? fmtPct(100 * A.bandPd[i] / n) : '-') + '</td>'
+      + '<td class="num">' + fmtUsd(usd) + '</td></tr>';
+  });
+  body += '<tr style="background:#F7F9FC;font-weight:700"><td class="num">All in view</td>'
+    + '<td class="num">' + fmtInt(tN) + '</td><td class="num">100.0%</td>'
+    + '<td class="num">' + (tN ? fmtPct1(100 * tD / tN) : '-') + '</td>'
+    + '<td class="num">' + (tN ? fmtPct(100 * A.pdSum / tN) : '-') + '</td>'
+    + '<td class="num">' + fmtUsd(tU) + '</td></tr>';
+  document.getElementById('bandBody').innerHTML = body;
+  document.getElementById('bandSub').textContent =
+    'Default rate by score band of the current selection - the highlighted row holds the '
+    + M.cutoff + '-point cutoff (PD = portfolio average risk)';
+}
+
+let USA_OK = false;
+function tryRegisterMap() {
+  try {
+    if (window.US_TOPO && window.topojson) {
+      const geo = topojson.feature(window.US_TOPO, window.US_TOPO.objects.states);
+      // keep only features that actually carry data (50 states + DC);
+      // Puerto Rico / Guam / other territories would render blank.
+      const ours = new Set(C.stateNames);
+      geo.features = geo.features.filter(f => ours.has(f.properties.name));
+      // Crop Alaska: drop Aleutian polygons that cross the antimeridian
+      // (positive longitude) - they stretch the bounds 360 degrees wide and
+      // shrink the whole map to a stamp. Mainland Alaska keeps all-negative
+      // longitudes, so this only removes the far island chain.
+      geo.features.forEach(f => {
+        if (f.properties.name === 'Alaska' && f.geometry &&
+            f.geometry.type === 'MultiPolygon') {
+          f.geometry.coordinates = f.geometry.coordinates.filter(poly => {
+            const flat = poly.flat(2);
+            for (let i = 0; i < flat.length; i += 2) if (flat[i] > 0) return false;
+            return true;
+          });
+        }
+      });
+      echarts.registerMap('USA', geo);
+      USA_OK = geo.features.length > 0;
+    }
+  } catch (e) { USA_OK = false; }
+}
+
+function renderMap() {
+  const ch = mkChart('chStates'); ch.clear();
+  const metric = S.mapMetric;
+  const vals = C.stateNames.map((name, i) => ({
+    name,
+    value: metric === 'rate'
+      ? (AGG.stN[i] ? +(100 * AGG.stDef[i] / AGG.stN[i]).toFixed(1) : 0)
+      : Math.round(AGG.stUsd[i]),
+    loans: AGG.stN[i], defaults: AGG.stDef[i], usd: Math.round(AGG.stUsd[i]),
+  }));
+  if (USA_OK) {
+    ch.setOption({
+      tooltip: { trigger: 'item', backgroundColor: tooltipBase.backgroundColor,
+        borderColor: tooltipBase.borderColor, textStyle: tooltipBase.textStyle,
+        formatter: p => {
+          const d = p.data || { loans: 0, defaults: 0, usd: 0, value: 0 };
+          return `<b>${p.name}</b><br/>Loans: ${fmtInt(d.loans)}<br/>Defaults: ${fmtInt(d.defaults)}<br/>${metric === 'rate' ? 'Default rate' : 'Defaulted $'}: <b>${metric === 'rate' ? d.value + '%' : fmtMusd(d.usd)}</b>`;
+        } },
+      visualMap: {
+        min: 0, max: metric === 'rate' ? Math.max(...vals.map(v => v.value), 10) : Math.max(...vals.map(v => v.usd)) || 1,
+        left: 10, bottom: 10, calculable: true,
+        text: [metric === 'rate' ? 'high' : '$', 'low'],
+        textStyle: { color: T.sub, fontSize: 10.5 },
+        inRange: { color: ['#EAF2FE', '#9CC8FD', '#4D9DF7', '#118DFF', '#0B4FB8', '#12239E'] },
+      },
+      series: [{
+        type: 'map', map: 'USA', roam: true, data: vals,
+        center: [-96.5, 38.5], zoom: 2.35,
+        label: { show: false },
+        emphasis: { label: { show: true, fontSize: 11.5, fontWeight: 700,
+                            color: '#12239E', formatter: p => p.name },
+                    itemStyle: { areaColor: '#FFB900' } },
+        itemStyle: { areaColor: '#F2F4F7', borderColor: '#FFFFFF', borderWidth: 0.8 },
+      }],
+    });
+    document.getElementById('mapSub').textContent =
+      'Choropleth of the 50 states + DC. Hover for details; drag to pan, scroll to zoom.';
+  } else {
+    // graceful fallback: top 10 states bar
+    const top = [...vals].sort((a, b) => b.usd - a.usd).slice(0, 10).reverse();
+    ch.setOption(hbarOption(
+      top.map(v => v.name), top.map(v => Math.round(v.usd / 1e6)),
+      top.map((v, i) => i === top.length - 1 ? T.navy : T.gray), v => '$' + v + 'M'));
+    document.getElementById('mapSub').textContent = 'Top 10 states by defaulted principal ($M)';
+  }
+}
+
+/* ----------------------------- KPIs ----------------------------- */
+function kpiCard(label, value, sub, accent) {
+  return `<div class="kpi">${accent ? `<div class="accent" style="background:${accent}"></div>` : ''}
+    <div class="klabel">${label}</div><div class="kvalue num">${value}</div>
+    <div class="ksub">${sub}</div></div>`;
+}
+function renderKpis() {
+  const A = AGG, dr = A.n ? 100 * A.def / A.n : 0;
+  document.getElementById('rowBadge').textContent = fmtInt(A.n) + ' loans shown';
+  document.getElementById('kpiOverview').innerHTML = [
+    kpiCard('TOTAL LOANS', fmtInt(A.n), fmtPct(100 * A.n / C.n) + ' of portfolio'),
+    kpiCard('TOTAL FUNDED', fmtMusd(A.funded), fmtPct(100 * A.funded / AGG0.funded) + ' of portfolio'),
+    kpiCard('DEFAULT RATE', fmtPct(dr), fmtInt(A.def) + ' defaults', T.magenta),
+    kpiCard('DEFAULTED DOLLARS', fmtMusd(A.defUsd), A.funded ? fmtPct1(100 * A.defUsd / A.funded) + ' of funded' : '-', T.magenta),
+    kpiCard('AVG LOAN', fmtUsd(A.n ? A.amtSum / A.n : 0), 'income ' + fmtUsd(A.n ? A.incSum / A.n : 0)),
+    kpiCard('PORTFOLIO AVG RATE', '13.86%', 'A 7.6% -> G 26.5% at origination'),
+  ].join('');
+
+  const hrRate = A.hrN ? 100 * A.hrDef / A.hrN : 0;
+  const shareOfDef = A.def ? 100 * A.hrDef / A.def : 0;
+  const defRateAvg = A.def ? A.defRateSum / A.def : 0;
+  const okN = A.n - A.def;
+  const okRateAvg = okN ? A.okRateSum / okN : 0;
+  document.getElementById('kpiRisk').innerHTML = [
+    kpiCard('DEFAULT RATE', fmtPct(dr), fmtInt(A.n) + ' loans in view', T.magenta),
+    kpiCard('HIGH-RISK SEGMENT', fmtPct1(hrRate), 'grade E-G and DTI 30+', T.magenta),
+    kpiCard('SHARE OF DEFAULTS', fmtPct1(shareOfDef), 'from ' + fmtPct1(100 * A.hrN / (A.n || 1)) + ' of loans'),
+    kpiCard('DEFAULTED DOLLARS', fmtMusd(A.defUsd), A.funded ? fmtPct1(100 * A.defUsd / A.funded) + ' of funded' : '-'),
+    kpiCard('RATE ON DEFAULTS', fmtPct(defRateAvg), 'vs ' + fmtPct(okRateAvg) + ' on performing'),
+  ].join('');
+
+  document.getElementById('kpiExplorer').innerHTML = [
+    kpiCard('MATCHED LOANS', fmtInt(A.n), 'of ' + fmtInt(C.n) + ' total'),
+    kpiCard('MATCHED PRINCIPAL', fmtMusd(A.funded), 'avg ' + fmtUsd(A.n ? A.amtSum / A.n : 0)),
+    kpiCard('DEFAULT RATE', fmtPct(dr), fmtInt(A.def) + ' defaults', T.magenta),
+    kpiCard('AVG DTI', A.dtiAvg.toFixed(1), 'vs 18.2 portfolio'),
+  ].join('');
+  const xc = document.getElementById('xCount');
+  if (xc) xc.textContent = fmtInt(A.n) + ' loans match the current filters';
+}
+
+/* ---------------------------- table ----------------------------- */
+const COLS = [
+  { key: 'id',    label: 'Loan ID',  fmt: v => fmtInt(v) },
+  { key: 'm',     label: 'Issued',   fmt: v => C.months[v] },
+  { key: 'amt',   label: 'Amount',   fmt: v => fmtUsd(v), num: true },
+  { key: 'g',     label: 'Grade',    fmt: v => C.grades[v] },
+  { key: 'sub',   label: 'Sub',      fmt: v => v },
+  { key: 'p',     label: 'Purpose',  fmt: v => C.purposes[v].replace(/_/g, ' ') },
+  { key: 's',     label: 'State',    fmt: v => C.states[v] },
+  { key: 'inc',   label: 'Income',   fmt: v => fmtUsd(v), num: true },
+  { key: 'dti',   label: 'DTI',      fmt: v => v.toFixed(1), num: true },
+  { key: 'rate',  label: 'Rate',     fmt: v => v.toFixed(2) + '%', num: true },
+  { key: 'score', label: 'Score',    fmt: v => fmtInt(v), num: true },
+  { key: 'd',     label: 'Status',   fmt: v => v },
+];
+function renderTableHead() {
+  document.getElementById('theadRow').innerHTML = COLS.map(c => {
+    const arr = S.sortKey === c.key ? (S.sortDir === 1 ? '&#9650;' : '&#9660;') : '';
+    return `<th data-k="${c.key}">${c.label}<span class="arr">${arr}</span></th>`;
+  }).join('');
+}
+function renderTable() {
+  const A = AGG;
+  const sortCol = COLS.find(c => c.key === S.sortKey);
+  const rows = A.idx.slice().sort((a, b) => {
+    let va = R[S.sortKey][a], vb = R[S.sortKey][b];
+    if (S.sortKey === 'sub') { va = R.g[a] * 10 + (+va[1] || 0); vb = R.g[b] * 10 + (+vb[1] || 0); }
+    if (typeof va === 'string') { return S.sortDir * va.localeCompare(vb); }
+    return S.sortDir * (va - vb);
+  });
+  const pages = Math.max(1, Math.ceil(rows.length / S.pageSize));
+  if (S.page >= pages) S.page = pages - 1;
+  const start = S.page * S.pageSize;
+  const slice = rows.slice(start, start + S.pageSize);
+  document.getElementById('tbody').innerHTML = slice.map(i =>
+    '<tr>' + COLS.map(c => {
+      const v = R[c.key][i];
+      if (c.key === 'd') {
+        return `<td><span class="status ${v ? 'def' : 'ok'}">${v ? 'Default' : 'Performed'}</span></td>`;
+      }
+      return `<td class="${c.num ? 'num' : ''}">${c.fmt(v)}</td>`;
+    }).join('') + '</tr>').join('');
+  document.getElementById('pgInfo').textContent =
+    rows.length ? `Showing ${fmtInt(start + 1)}-${fmtInt(Math.min(start + S.pageSize, rows.length))} of ${fmtInt(rows.length)}` : 'No rows match';
+  document.getElementById('pgPrev').disabled = S.page === 0;
+  document.getElementById('pgNext').disabled = S.page >= pages - 1;
+  renderTableHead();
+}
+
+/* ------------------------- filter chips ------------------------- */
+function renderChips() {
+  const chips = [];
+  if (S.grades.size < 7) chips.push(`<span class="fchip">Grade = <b>${[...S.grades].map(g => C.grades[g]).join(', ')}</b></span>`);
+  if (S.term !== 'all') chips.push(`<span class="fchip">Term = <b>${S.term} months</b></span>`);
+  if (S.purpose !== 'all') chips.push(`<span class="fchip">Purpose = <b>${C.purposes[S.purpose].replace(/_/g, ' ')}</b></span>`);
+  if (S.income !== 'all') chips.push(`<span class="fchip">Income = <b>${['0-25k', '25-50k', '50-75k', '75k+'][S.income]}</b></span>`);
+  if (S.status !== 'all') chips.push(`<span class="fchip">Status = <b>${S.status === 1 ? 'Defaulted' : 'Performed'}</b></span>`);
+  if (S.search.trim()) chips.push(`<span class="fchip">Search = <b>"${S.search.trim()}"</b></span>`);
+  const html = chips.length
+    ? chips.join('') + '<span class="fchip" style="cursor:pointer;background:#FDEDF5;border-color:#F5BBD7;color:#B0006A" id="clearChips">Clear all &#10005;</span>'
+    : '<span class="fchip">No filters - showing the full portfolio</span>';
+  document.getElementById('xChips').innerHTML = html;
+  const clr = document.getElementById('clearChips');
+  if (clr) clr.onclick = resetFilters;
+}
+
+/* --------------------------- master ----------------------------- */
+let AGG0 = null;
+let activePage = 'overview';
+function refresh() {
+  recompute();
+  renderKpis();
+  renderChips();
+  renderTable();
+  // render charts only for the visible page (ECharts needs layout box)
+  if (activePage === 'overview') renderOverviewCharts();
+  if (activePage === 'risk') renderRiskCharts();
+  if (activePage === 'model') renderModelCharts();
+  Object.values(charts).forEach(c => c.resize());
+}
+function resetFilters() {
+  S = { ...S, grades: new Set([0,1,2,3,4,5,6]), term: 'all', purpose: 'all',
+        income: 'all', status: 'all', search: '', page: 0 };
+  buildSlicers();
+  document.getElementById('xSearch').value = '';
+  refresh();
+}
+
+function buildSlicers() {
+  const gEl = document.getElementById('slGrade');
+  gEl.innerHTML = C.grades.map((g, i) =>
+    `<button data-g="${i}" class="${S.grades.has(i) ? 'on' : ''}">${g}</button>`).join('');
+  gEl.querySelectorAll('button').forEach(b => b.onclick = () => {
+    const i = +b.dataset.g;
+    if (S.grades.has(i) && S.grades.size === 1) return;
+    if (S.grades.size === 7) S.grades = new Set([i]);
+    else S.grades.has(i) ? S.grades.delete(i) : S.grades.add(i);
+    if (S.grades.size === 0) S.grades = new Set([0,1,2,3,4,5,6]);
+    S.page = 0; buildSlicers(); refresh();
+  });
+  const tEl = document.getElementById('slTerm');
+  tEl.innerHTML = ['all', '36', '60'].map(t =>
+    `<button data-t="${t}" class="${S.term === t ? 'on' : ''}">${t === 'all' ? 'All' : t}</button>`).join('');
+  tEl.querySelectorAll('button').forEach(b => b.onclick = () => {
+    S.term = b.dataset.t; S.page = 0; buildSlicers(); refresh();
+  });
+  const pEl = document.getElementById('slPurpose');
+  pEl.innerHTML = '<option value="all">All purposes</option>' +
+    C.purposes.map((p, i) => `<option value="${i}" ${S.purpose === i ? 'selected' : ''}>${p.replace(/_/g, ' ')}</option>`).join('');
+  pEl.onchange = () => { S.purpose = pEl.value === 'all' ? 'all' : +pEl.value; S.page = 0; refresh(); };
+  const sEl = document.getElementById('slStatus');
+  sEl.innerHTML = [['all', 'All'], ['0', 'Performed'], ['1', 'Defaulted']].map(([v, l]) => {
+    const cur = S.status === 'all' ? 'all' : S.status;
+    return `<button data-s="${v}" class="${cur === v || cur === +v ? 'on' : ''} ${v === '1' ? 'hot' : ''}">${l}</button>`;
+  }).join('');
+  sEl.querySelectorAll('button').forEach(b => b.onclick = () => {
+    S.status = b.dataset.s === 'all' ? 'all' : +b.dataset.s;
+    S.page = 0; buildSlicers(); refresh();
+  });
+}
+
+/* --------------------------- wiring ----------------------------- */
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  b.classList.add('active');
+  activePage = b.dataset.page;
+  document.getElementById('page-' + activePage).classList.add('active');
+  refresh();
+});
+document.getElementById('btnReset').onclick = resetFilters;
+document.getElementById('pgPrev').onclick = () => { S.page--; renderTable(); };
+document.getElementById('pgNext').onclick = () => { S.page++; renderTable(); };
+document.getElementById('pageSize').onchange = e => { S.pageSize = +e.target.value; S.page = 0; renderTable(); };
+document.getElementById('theadRow').addEventListener('click', e => {
+  const th = e.target.closest('th'); if (!th) return;
+  const k = th.dataset.k;
+  if (S.sortKey === k) S.sortDir *= -1; else { S.sortKey = k; S.sortDir = -1; }
+  renderTable();
+});
+document.getElementById('mapRate').onclick = e => {
+  S.mapMetric = 'rate'; document.getElementById('mapRate').classList.add('on');
+  document.getElementById('mapUsd').classList.remove('on'); renderMap();
+};
+document.getElementById('mapUsd').onclick = e => {
+  S.mapMetric = 'usd'; document.getElementById('mapUsd').classList.add('on');
+  document.getElementById('mapRate').classList.remove('on'); renderMap();
+};
+window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
+
+// search box (added dynamically to keep markup tidy)
+const xbar = document.getElementById('xChips');
+const searchHtml = '<input type="text" id="xSearch" placeholder="Search loan ID, state, purpose...">';
+const countHtml = '<span class="count" id="xCount"></span>';
+xbar.insertAdjacentHTML('afterend', '<div style="margin-bottom:12px;display:flex;gap:10px">' + searchHtml + countHtml + '</div>');
+document.getElementById('xSearch').addEventListener('input', e => {
+  S.search = e.target.value; S.page = 0; refresh();
+});
+
+/* ---------------------------- boot ------------------------------ */
+tryRegisterMap();
+document.getElementById('modelBadge').textContent =
+  'Scorecard AUC ' + M.auc.toFixed(3) + ' · KS ' + M.ks.toFixed(3);
+const woeSel = document.getElementById('woeFeature');
+woeSel.innerHTML = MODEL.iv.map(x =>
+  '<option value="' + x.k + '">' + x.label + ' · IV ' + x.iv.toFixed(3)
+  + (x.selected ? '' : ' (dropped)') + '</option>').join('');
+woeSel.value = MODEL.top;
+woeSel.onchange = renderWoe;
+recompute();
+AGG0 = { funded: AGG.funded };
+buildSlicers();
+refresh();
+</script>
+</body>
+</html>
